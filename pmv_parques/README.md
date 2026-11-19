@@ -5,27 +5,46 @@ que pide la Fase 2: formulario transaccional, CRUD, control de usuarios y panel 
 
 ## Ejecutar con Docker
 
-Requisito: tener Docker Desktop instalado y abierto.
+Requisito: tener Docker Desktop instalado y abierto. Todos los comandos van en una terminal
+abierta en esta carpeta (la que tiene `docker-compose.yml`). Son los mismos en Windows, macOS y Linux.
 
-1. Abrir una terminal en esta carpeta (la que tiene `docker-compose.yml`).
-2. Ejecutar:
+### 1. Levantar todo
 
-   ```bash
-   docker compose up --build
-   ```
+```bash
+docker compose up --build -d
+```
 
-   La primera vez crea la base de datos y ejecuta `sql/script_integral.sql` completo.
-   La aplicación parte sola cuando MySQL termina de cargar.
-3. Abrir en el navegador: **http://localhost:8501**
+- `--build` construye la imagen de la aplicación con el `Dockerfile`.
+- El servicio `db` (MySQL 8.0.46) ejecuta `sql/script_integral.sql`: crea la base, las 26 tablas con sus
+  restricciones, los datos, las 6 vistas y los 6 procedimientos.
+- La aplicación parte sola cuando MySQL termina de cargar. La primera vez tarda un par de minutos
+  porque descarga MySQL y Python; después, unos 20 segundos.
 
-Para detenerla: `Ctrl + C` en la terminal, o `docker compose down`.
+Abrir en el navegador: **http://localhost:8501**
 
-Para reiniciar la base de datos desde cero (borra los cambios hechos desde la aplicación):
+### 2. Ver que los datos se crearon
+
+```bash
+docker compose ps
+docker compose exec db mysql -uroot -pParques2026 -t -e "source /verificar.sql"
+```
+
+El segundo comando ejecuta `sql/verificar.sql` dentro de MySQL y muestra cuántas filas tiene cada tabla
+y cuántas tablas, vistas y procedimientos hay (26, 6 y 6). La advertencia `Using a password on the
+command line` es normal.
+
+### 3. Borrar todo y volver a crearlo
 
 ```bash
 docker compose down -v
-docker compose up --build
+docker compose up -d
 ```
+
+`down -v` borra los contenedores y el volumen `datos_mysql`, donde vive la base. El siguiente `up`
+encuentra el volumen vacío y vuelve a ejecutar el script completo, así que la base queda como recién
+creada (se pierde todo lo que se haya cambiado desde la aplicación).
+
+Para solo detener, sin borrar los datos: `docker compose down`.
 
 La base también se puede abrir desde MySQL Workbench: host `localhost`, puerto **3307**,
 usuario `root`, contraseña `Parques2026`.
@@ -49,31 +68,16 @@ docker compose run --rm generador
 Sin Docker (Python 3.12+): `pip install -r requirements.txt` y luego
 `python generador/generar_datos.py`.
 
-La semilla es fija (`SEMILLA = 2026`), así que siempre se generan exactamente los mismos datos.
-Para que MySQL cargue el script nuevo hay que reiniciar la base (`docker compose down -v` y
-`docker compose up --build`).
+La semilla es fija (`SEMILLA = 2026`) y la versión de Faker también, así que siempre se generan
+exactamente los mismos datos. Para que MySQL cargue el script nuevo hay que borrar y volver a crear
+la base (`docker compose down -v` y `docker compose up -d`).
 
-## Ejecutar sin internet (respaldo para la presentación)
+## Sin internet
 
-`docker compose up --build` descarga MySQL, Python y las librerías desde internet. Si en el
-lugar de la presentación no hay red, se pueden llevar las imágenes ya construidas en un archivo:
-
-1. En un computador **con internet**, dentro de esta carpeta:
-
-   ```bash
-   docker compose build
-   docker save -o ../pmv_parques_imagenes.tar mysql:8.0 pmv_parques_app:1.0
-   ```
-
-   El archivo queda fuera de la carpeta del proyecto (pesa unos 450 MB; no se sube a Canvas).
-2. En el computador de la presentación, copiar la carpeta del proyecto y el archivo `.tar`, y:
-
-   ```bash
-   docker load -i ../pmv_parques_imagenes.tar
-   docker compose up
-   ```
-
-   Aquí va **sin** `--build`: las imágenes ya están cargadas y no se descarga nada.
+La primera vez Docker descarga MySQL, Python y las librerías, y las deja guardadas en el computador.
+Si después no hay internet, `docker compose up -d` (sin `--build`) funciona igual: usa lo que ya está
+guardado y no descarga nada. Por eso conviene levantar el proyecto una vez, con internet, en el
+computador que se va a usar.
 
 ## Cuentas de demostración
 

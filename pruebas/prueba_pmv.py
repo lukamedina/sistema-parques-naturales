@@ -6,7 +6,7 @@ validaciones, registro de asistencia, CRUD de parques y especies y administraci�
 de usuarios. Después de cada acción revisa la base de datos con una consulta.
 
 OJO: crea registros de prueba (un parque, especies, una inscripción). Después de
-correrla, reiniciar la base:  docker compose down -v  y  docker compose up -d --no-build --pull never
+correrla, reiniciar la base:  docker compose down -v  y  docker compose up -d
 
 Cómo ejecutarla (desde la carpeta pmv_parques, con docker compose ya levantado):
     docker cp ../pruebas/prueba_pmv.py parques_pmv:/tmp/prueba_pmv.py

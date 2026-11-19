@@ -1,9 +1,20 @@
-# Levanta los dos servicios del proyecto:
-#   db  -> MySQL 8.0. La primera vez ejecuta sql/script_integral.sql (crea y llena la base).
-#   app -> PMV en Streamlit. Parte cuando la base de datos ya está lista.
+# Proyecto Parques Naturales (Grupo 8): MySQL + PMV en Streamlit
+#
+# Las tres acciones que se muestran (siempre dentro de esta carpeta):
+#
+#   1. Crear los datos     docker compose run --rm generador
+#      generar_datos.py (Faker) escribe sql/2_datos.sql y arma sql/script_integral.sql
+#
+#   2. Levantar todo       docker compose up --build -d
+#      db ejecuta sql/script_integral.sql: base, 26 tablas, restricciones, datos, 6 vistas y 6 procedimientos.
+#      app se construye con el Dockerfile y parte cuando la base terminó de cargar.
+#      Ver los datos:      docker compose exec db mysql -uroot -pParques2026 -t -e "source /verificar.sql"
+#
+#   3. Borrar todo         docker compose down -v
+#      Borra los contenedores y el volumen con los datos. El próximo "up" crea la base desde cero.
 services:
   db:
-    image: mysql:8.0
+    image: mysql:8.0.46          # versión fija: en todos los computadores corre exactamente la misma
     container_name: parques_mysql
     environment:
       MYSQL_ROOT_PASSWORD: Parques2026
@@ -12,17 +23,18 @@ services:
       - "3307:3306"          # en el computador queda en el puerto 3307 (para no chocar con otro MySQL)
     volumes:
       - ./sql/script_integral.sql:/docker-entrypoint-initdb.d/script_integral.sql:ro
+      - ./sql/verificar.sql:/verificar.sql:ro
       - datos_mysql:/var/lib/mysql
     healthcheck:
       # "sano" recién cuando el script terminó de cargar (ya existe la última tabla con datos)
       test: ["CMD-SHELL", "mysql -h 127.0.0.1 -uroot -pParques2026 -e 'SELECT 1 FROM Sistema_Integral_Parques_Naturales.Evaluacion LIMIT 1'"]
       interval: 5s
       timeout: 5s
-      retries: 40
+      retries: 60            # espera hasta 5 minutos, por si el computador es lento
 
   app:
     build: .
-    image: pmv_parques_app:1.0   # nombre fijo: así se puede guardar con docker save y cargar sin internet
+    image: pmv_parques_app:1.0
     container_name: parques_pmv
     environment:
       DB_HOST: db
@@ -37,8 +49,7 @@ services:
       db:
         condition: service_healthy
 
-  # generador -> script de poblamiento (Faker). NO parte con "docker compose up";
-  #   se ejecuta una sola vez, a mano:   docker compose run --rm generador
+  # generador: NO parte con "docker compose up"; se ejecuta a mano (acción 1).
   #   Usa el Python 3.12 y el Faker de la imagen, así que no hay que instalar nada.
   #   Escribe sql/2_datos.sql y sql/script_integral.sql en la carpeta del proyecto.
   generador:

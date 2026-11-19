@@ -1,64 +1,60 @@
 # Sistema Integral de Gestión de Parques Naturales (Grupo 8)
 
-TDFI103 Bases de Datos, Fase 2. PMV en Python y Streamlit con MySQL 8, listo para levantar con Docker
-**sin internet** el día de la presentación.
+TDFI103 Bases de Datos, Fase 2. PMV en Python y Streamlit con MySQL 8, que se levanta con Docker.
 
 ## Qué hay
 
 | Carpeta o archivo | Qué es |
 |---|---|
-| `pmv_parques/` | El PMV completo: código, SQL, generador de datos, `Dockerfile` y `docker-compose.yml`. Su README explica todo el uso normal. |
+| `pmv_parques/` | El PMV completo: código, `Dockerfile`, `docker-compose.yml`, SQL y generador de datos. Su README explica cada comando. |
+| `pmv_parques/sql/script_integral.sql` | Un solo archivo que crea la base, las tablas, las restricciones, los datos, las 6 vistas y los 6 procedimientos. |
+| `pmv_parques/generador/generar_datos.py` | Genera los datos con Faker y arma el script integral. |
+| `pmv_parques/sql/verificar.sql` | Muestra cuántos datos y objetos tiene la base. |
 | `pruebas/prueba_pmv.py` | Prueba automática del PMV (34 verificaciones). |
 | `pruebas/laboratorio_entrevista.sql` | Pruebas para Workbench: el error de cada restricción y los requerimientos modificados. |
-| `pmv_parques_imagenes.tar` | Las imágenes `mysql:8.0` y `pmv_parques_app:1.0` ya construidas. No está en el repositorio porque pesa 446 MB: se baja desde [Releases](https://github.com/lukamedina/sistema-parques-naturales/releases/tag/imagenes-v1.0) y se deja en esta misma carpeta, al lado de `pmv_parques/`. |
 
 ## Despliegue en vivo (Luka y Martin)
 
-Martin maneja la terminal y Docker. Luka maneja el navegador, Workbench y las demos del PMV.
-Todos los comandos se ejecutan **dentro de `pmv_parques/`**.
+GitHub es el pendrive: el proyecto se baja con git en el computador de la presentación.
+Martin maneja la terminal; Luka maneja el navegador, Workbench y las demos.
 
-### El día antes, con internet
+### El día antes, con internet, en el computador que se va a usar
 
-1. Si cambió algún `.py`, el `Dockerfile` o `requirements.txt`, volver a construir y guardar las imágenes,
-   porque el código va **dentro** de la imagen:
+```bash
+git clone https://github.com/lukamedina/sistema-parques-naturales.git
+cd sistema-parques-naturales/pmv_parques
+docker compose up --build -d
+```
 
-   ```bash
-   docker compose build
-   docker save -o ../pmv_parques_imagenes.tar mysql:8.0 pmv_parques_app:1.0
-   ```
+Esto descarga MySQL 8.0.46 y Python 3.12.13 (versiones fijas, iguales en Windows, macOS y Linux),
+construye la app y crea la base. En la prueba tardó 93 segundos la primera vez. Después, hacer el ensayo
+completo de la sección siguiente.
 
-   Si solo cambió el SQL no hace falta: MySQL lee `sql/script_integral.sql` desde la carpeta.
-2. Copiar a un pendrive `pmv_parques/`, `pruebas/` y `pmv_parques_imagenes.tar` (o clonar este repositorio
-   y bajar el `.tar` desde Releases).
-3. Si en ese computador se levantó antes el proyecto desde otra carpeta (por ejemplo `ProyectoDB`),
-   ir a esa carpeta y ejecutar `docker compose down`. Si no, los contenedores viejos tienen los mismos
-   nombres y el arranque falla (ver la tabla de abajo).
-4. Hacer el ensayo completo de la sección siguiente en el computador que se va a usar.
+- Si ese computador ya tenía contenedores `parques_mysql` o `parques_pmv` levantados desde otra carpeta
+  (por ejemplo `ProyectoDB`), ejecutar antes `docker compose down` en esa carpeta.
+- Si después se sube algún cambio a GitHub: `git pull` y otra vez `docker compose up --build -d`.
+- En Windows, Docker Desktop necesita WSL2 y la virtualización activada. Por eso el ensayo se hace en
+  ese mismo computador.
 
-### En la sala, sin internet
+### En la sala: lo que se muestra
 
-1. Abrir Docker Desktop y esperar a que diga que está corriendo.
-2. Cargar las imágenes (solo la primera vez en ese computador):
+Todo dentro de `pmv_parques`:
 
-   ```bash
-   docker load -i ../pmv_parques_imagenes.tar
-   ```
+| Acción | Comando | Qué se ve |
+|---|---|---|
+| Levantar | `docker compose up --build -d` | Construye la app con el `Dockerfile` y MySQL ejecuta el script integral. Termina con `Container parques_pmv Started`. |
+| Ver los datos | `docker compose exec db mysql -uroot -pParques2026 -t -e "source /verificar.sql"` | Filas por tabla (por ejemplo, 1342 inscripciones) y 26 tablas, 6 vistas y 6 procedimientos. |
+| Borrar | `docker compose down -v` | `Volume pmv_parques_datos_mysql Removed`: la base ya no existe. |
+| Volver a crear | `docker compose up -d` | El script corre de nuevo y la base queda como recién creada, en unos 20 segundos. |
+| Crear los datos | `docker compose run --rm generador` | Faker vuelve a escribir `sql/2_datos.sql` y `sql/script_integral.sql`, idénticos byte a byte. |
 
-   Tiene que decir `Loaded image: mysql:8.0` y `Loaded image: pmv_parques_app:1.0`.
-3. Partir con la base limpia y sin descargar nada:
+Si en la sala no hay internet, levantar con `docker compose up -d`, sin `--build`: usa lo que se
+descargó el día antes y no construye ni descarga nada.
 
-   ```bash
-   docker compose down -v
-   docker compose up -d --no-build --pull never
-   ```
+Luka abre http://localhost:8501 en tres pestañas (admin, operador y analista) y Workbench en
+`localhost`, puerto `3307`, usuario `root`, contraseña `Parques2026`.
 
-   `--no-build` = no construir la app; `--pull never` = no descargar imágenes. En la prueba tardó
-   22 segundos hasta `Container parques_pmv Started`.
-4. `docker ps` tiene que mostrar `parques_mysql` (healthy) y `parques_pmv` (Up).
-5. Luka abre http://localhost:8501 en tres pestañas (admin, operador y analista) y Workbench en
-   `localhost`, puerto `3307`, usuario `root`, contraseña `Parques2026`.
-
-Para mostrar la prueba automática (crea registros de prueba, así que después hay que repetir el paso 3):
+Prueba automática (crea registros de prueba; después, `docker compose down -v` y `docker compose up -d`):
 
 ```bash
 docker cp ../pruebas/prueba_pmv.py parques_pmv:/tmp/prueba_pmv.py
@@ -71,14 +67,9 @@ Termina con `RESULTADO: TODO OK`.
 
 | Qué pasa | Lo que se ve | Qué hacer |
 |---|---|---|
-| No se hizo `docker load` | `Error response from daemon: No such image: pmv_parques_app:1.0` | Hacer el paso 2. Con `--pull never` el error sale al tiro, en vez de quedarse intentando descargar. |
 | Quedaron contenedores de otra carpeta con el mismo nombre | `Conflict. The container name "/parques_mysql" is already in use by container ...` | En la otra carpeta, `docker compose down`. |
 | El puerto 3307 o el 8501 ya está ocupado | `Bind for 0.0.0.0:3307 failed: port is already allocated` | Cerrar el otro programa o cambiar el puerto de la izquierda en `docker-compose.yml`. |
-| Se usó `--build` sin internet | Docker intenta bajar `python:3.12-slim` o las librerías y se cae (no se probó sin red) | Usar el comando del paso 3. |
-| Se cambió un `.py` y no se volvió a guardar el `.tar` | La app de la sala muestra el código viejo | Repetir el paso 1 del día antes. |
-
-Las imágenes son para procesadores Intel o AMD. En un Mac con chip M1, M2 o M3, Docker las corre
-emulando: no se probó y va más lento, así que es mejor presentar desde un notebook con Windows o Linux.
+| Se cambió un `.py` y se levantó sin `--build` | La app sigue con el código anterior | `docker compose up --build -d`. |
 
 ## Cuentas de demostración
 
@@ -87,13 +78,3 @@ emulando: no se probó y va más lento, así que es mejor presentar desde un not
 | `admin` | `Admin2026!` | Administrador |
 | `operador` | `Operador2026!` | Operador |
 | `analista` | `Analista2026!` | Analista |
-
-## Volver a generar los datos
-
-```bash
-docker compose run --rm generador
-```
-
-Reescribe `sql/2_datos.sql` y `sql/script_integral.sql`. Como la semilla (2026) y la versión de Faker
-(40.54.0) están fijas, salen idénticos byte a byte. Para que MySQL los cargue: `docker compose down -v`
-y el paso 3.

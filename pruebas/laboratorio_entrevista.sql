@@ -8,7 +8,7 @@
 --
 -- No deja cambios: lo que modifica datos va entre START TRANSACTION y ROLLBACK,
 -- y lo que quita una restricción la vuelve a poner al final.
--- Si algo queda raro (en la carpeta pmv_parques): docker compose down -v  y  docker compose up -d --no-build --pull never
+-- Si algo queda raro (en la carpeta pmv_parques): docker compose down -v  y  docker compose up -d
 -- =========================================================================
 USE Sistema_Integral_Parques_Naturales;
 
