@@ -16,11 +16,15 @@ Reglas de negocio que respetan los datos:
   - Excursiones programadas (nov 2026 - ene 2027): asistencia 'Pendiente' (para probar el PMV).
   - Solo evalúan los visitantes que asistieron, y después de la excursión.
 
-Cómo se usa (desde la carpeta principal del proyecto):
-    pip install faker
-    python generador/generar_datos.py
+Cómo se usa (desde la carpeta pmv_parques):
+    Con Docker (no hay que instalar Python ni Faker):
+        docker compose run --rm generador
+    Sin Docker (Python 3.12+):
+        pip install -r requirements.txt
+        python generador/generar_datos.py
 
-Los datos son REPRODUCIBLES: como la semilla es fija, siempre se generan los mismos.
+Los datos son REPRODUCIBLES: como la semilla es fija y la versión de Faker está
+fijada en requirements.txt, siempre se generan exactamente los mismos.
 """
 import hashlib
 import os
@@ -37,6 +41,8 @@ random.seed(SEMILLA)
 Faker.seed(SEMILLA)
 fake = Faker("es_CL")
 
+# La carpeta sql/ está al lado de la carpeta generador/ (se calcula desde este archivo,
+# así funciona sin importar desde qué carpeta se ejecute el script)
 CARPETA_SQL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sql")
 FECHA_CORTE = date(2026, 10, 31)     # último día con excursiones ya realizadas
 

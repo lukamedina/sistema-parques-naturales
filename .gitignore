@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+*.pyc
+# Las imágenes Docker pesan 446 MB: van en Releases, no en el repositorio
+*.tar
