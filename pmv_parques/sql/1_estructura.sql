@@ -1,27 +1,24 @@
 -- =========================================================================
--- PROYECTO SEMESTRAL 2026 - TDFI103 BASES DE DATOS - FASE 2 - GRUPO 8
--- Caso 1: Sistema Integral de Gestión de Parques Naturales y Conservación Ambiental
+-- SCRIPT INTEGRAL: Sistema Integral de Gestión de Parques Naturales
+-- TDFI103 Bases de Datos, Fase 2, Grupo 8
 --
--- SCRIPT INTEGRAL
---   1. Creación de la base de datos
---   2. Creación de tablas
---   3. Restricciones, claves y relaciones (PK, FK, NOT NULL, UNIQUE, CHECK)
---   4. Inserción de datos (generados con generador/generar_datos.py)
---   5. Creación de 6 vistas
---   6. Creación de 6 procedimientos almacenados
+-- Orden del script:
+--   1. Base de datos
+--   2. Tablas
+--   3. Restricciones (PK, FK, NOT NULL, UNIQUE y CHECK)
+--   4. Datos
+--   5. Vistas (Felipe: R2, R3 y R5. Javier: R6, R7 y R8)
+--   6. Procedimientos (Felipe: R4, R9 y R10. Javier: R1, R11 y R12)
 --
--- Motor: MySQL 8.0.16 o superior (desde esa versión se respetan los CHECK).
--- Se ejecuta completo de principio a fin y reconstruye la base desde cero.
---
--- Tipos de datos usados (solo tipos básicos):
---   INT, DECIMAL, VARCHAR, DATE y TIME.
---   Los valores "sí/no" se guardan como texto: 'Si' o 'No'.
+-- Se ejecuta completo en MySQL 8.0 y crea la base desde cero.
+-- Solo usa tipos básicos: INT, DECIMAL, VARCHAR, DATE y TIME.
+-- Sí o no se guarda como texto: 'Si' o 'No'.
 -- =========================================================================
 
 SET NAMES utf8mb4;   -- para que se guarden bien las tildes y la ñ
 
 -- -------------------------------------------------------------------------
--- 1. CREACIÓN DE LA BASE DE DATOS
+-- 1. BASE DE DATOS
 -- -------------------------------------------------------------------------
 DROP DATABASE IF EXISTS Sistema_Integral_Parques_Naturales;
 CREATE DATABASE Sistema_Integral_Parques_Naturales;
@@ -33,6 +30,7 @@ USE Sistema_Integral_Parques_Naturales;
 
 -- ---------------- MÓDULO 1: COMUNIDADES, PARQUES Y ÁREAS -----------------
 
+-- Tabla: guarda las comunidades autónomas.
 CREATE TABLE Comunidad_Autonoma (
     Codigo                VARCHAR(10)  NOT NULL,
     Nombre_Comunidad      VARCHAR(100) NOT NULL,
@@ -42,9 +40,7 @@ CREATE TABLE Comunidad_Autonoma (
     UNIQUE (Nombre_Comunidad)
 );
 
--- El parque se identifica por un ROL compuesto: año de declaración + número correlativo.
--- Codigo_Comunidad es la comunidad principal responsable (todo parque debe tener una).
--- Activo = 'No' significa que el parque fue desactivado desde el PMV (eliminación lógica).
+-- Tabla: guarda los parques. Activo = 'No' es un parque desactivado.
 CREATE TABLE Parque_Natural (
     Anio_de_Declaracion    INT           NOT NULL,
     Numero_Correlativo     INT           NOT NULL,
@@ -68,7 +64,7 @@ CREATE TABLE Parque_Natural (
     FOREIGN KEY (Codigo_Comunidad) REFERENCES Comunidad_Autonoma (Codigo)
 );
 
--- Relación N:M "PARTICIPA": un parque puede estar compartido por varias comunidades.
+-- Tabla: guarda qué comunidades comparten cada parque y en qué porcentaje.
 CREATE TABLE Participacion_Comunidad (
     Codigo_Comunidad       VARCHAR(10)  NOT NULL,
     Anio_de_Declaracion    INT          NOT NULL,
@@ -81,8 +77,7 @@ CREATE TABLE Participacion_Comunidad (
         REFERENCES Parque_Natural (Anio_de_Declaracion, Numero_Correlativo)
 );
 
--- ÁREA es entidad DÉBIL de Parque_Natural:
--- su PK es la PK del parque + el número interno (único solo dentro del parque).
+-- Tabla: guarda las áreas de cada parque (entidad débil del parque).
 CREATE TABLE Area (
     Anio_de_Declaracion INT           NOT NULL,
     Numero_Correlativo  INT           NOT NULL,
@@ -103,11 +98,7 @@ CREATE TABLE Area (
 
 -- ---------------- MÓDULO 2: ESPECIES E INVENTARIO ------------------------
 
--- Generalización ESPECIE -> VEGETAL / ANIMAL / MINERAL
---   * DISJUNTA: una especie clasificada pertenece a un solo subtipo.
---   * PARCIAL : puede haber especies sin clasificar (Tipo_Especie = NULL),
---               por ejemplo hongos, líquenes y algas.
--- Tipo_Especie es el atributo DISCRIMINADOR.
+-- Tabla: guarda las especies. Tipo_Especie dice si es Vegetal, Animal o Mineral.
 CREATE TABLE Especie (
     Id_Especie              INT          NOT NULL AUTO_INCREMENT,
     Denominacion_Cientifica VARCHAR(150) NOT NULL,
@@ -124,7 +115,7 @@ CREATE TABLE Especie (
     CHECK (Activo IN ('Si', 'No'))
 );
 
--- Subtipos: su PK es también FK hacia Especie (transformación clásica de la jerarquía).
+-- Tabla: guarda los datos que solo tienen las especies vegetales.
 CREATE TABLE Especie_Vegetal (
     Id_Especie             INT          NOT NULL,
     Antecedentes_Floracion VARCHAR(100) NOT NULL,
@@ -132,6 +123,7 @@ CREATE TABLE Especie_Vegetal (
     FOREIGN KEY (Id_Especie) REFERENCES Especie (Id_Especie)
 );
 
+-- Tabla: guarda los datos que solo tienen las especies animales.
 CREATE TABLE Especie_Animal (
     Id_Especie   INT         NOT NULL,
     Alimentacion VARCHAR(20) NOT NULL,
@@ -142,6 +134,7 @@ CREATE TABLE Especie_Animal (
     FOREIGN KEY (Id_Especie) REFERENCES Especie (Id_Especie)
 );
 
+-- Tabla: guarda los datos que solo tienen los minerales.
 CREATE TABLE Especie_Mineral (
     Id_Especie INT         NOT NULL,
     Roca       VARCHAR(50) NULL,
@@ -151,7 +144,7 @@ CREATE TABLE Especie_Mineral (
     FOREIGN KEY (Id_Especie) REFERENCES Especie (Id_Especie)
 );
 
--- INVENTARIO_ESPECIE: entidad ASOCIATIVA entre Área y Especie (N:M con atributos propios).
+-- Tabla: guarda cuántos ejemplares de cada especie hay en cada área.
 CREATE TABLE Inventario_Especie (
     Anio_de_Declaracion        INT          NOT NULL,
     Numero_Correlativo         INT          NOT NULL,
@@ -169,6 +162,7 @@ CREATE TABLE Inventario_Especie (
 
 -- ---------------- MÓDULO 3: EXCURSIONES, VISITANTES, INSCRIPCIONES -------
 
+-- Tabla: guarda las excursiones de cada área.
 CREATE TABLE Excursiones (
     Registro_Codigo     VARCHAR(10) NOT NULL,
     Fecha_Excursiones   DATE        NOT NULL,
@@ -186,6 +180,7 @@ CREATE TABLE Excursiones (
         REFERENCES Area (Anio_de_Declaracion, Numero_Correlativo, Numero_Interno)
 );
 
+-- Tabla: guarda los visitantes.
 CREATE TABLE Visitantes (
     Id_Visitante       VARCHAR(10)  NOT NULL,
     Nombre_Visitante   VARCHAR(80)  NOT NULL,
@@ -194,9 +189,7 @@ CREATE TABLE Visitantes (
     UNIQUE (Correo_Electronico)
 );
 
--- INSCRIPCIÓN: entidad ASOCIATIVA entre Visitante y Excursión.
--- Asistencia: 'Pendiente' (la excursión aún no se realiza), 'Asiste' o 'No Asiste'.
--- El UNIQUE impide que un visitante se inscriba dos veces en la misma excursión.
+-- Tabla: guarda qué visitante se inscribió en qué excursión y si asistió.
 CREATE TABLE Inscripcion (
     Id_Inscripcion    INT          NOT NULL AUTO_INCREMENT,
     Registro_Codigo   VARCHAR(10)  NOT NULL,
@@ -211,8 +204,7 @@ CREATE TABLE Inscripcion (
     FOREIGN KEY (Id_Visitante)    REFERENCES Visitantes (Id_Visitante)
 );
 
--- EVALUACIÓN: entidad DÉBIL de Excursiones (número correlativo dentro de cada excursión).
--- El UNIQUE asegura que cada visitante evalúa una sola vez cada excursión.
+-- Tabla: guarda la nota que pone cada visitante a una excursión.
 CREATE TABLE Evaluacion (
     Registro_Codigo   VARCHAR(10)  NOT NULL,
     Numero_Evaluacion INT          NOT NULL,
@@ -230,9 +222,7 @@ CREATE TABLE Evaluacion (
 
 -- ---------------- MÓDULO 4: PERSONAL, FUNCIONES, USUARIOS Y ROLES -------
 
--- Nombre (Primer_Nombre + apellidos) y Dirección (Calle + Numero + Region) son
--- atributos COMPUESTOS. La edad es DERIVADA (se calcula con la fecha de nacimiento).
--- El correo es OPCIONAL (puede ser NULL).
+-- Tabla: guarda a las personas que trabajan en los parques.
 CREATE TABLE Personal (
     Run                     VARCHAR(12)  NOT NULL,
     Primer_Nombre           VARCHAR(40)  NOT NULL,
@@ -250,7 +240,7 @@ CREATE TABLE Personal (
     CHECK (Numero > 0)
 );
 
--- CONTACTO: atributo MULTIVALUADO de Personal (una persona puede tener varios teléfonos).
+-- Tabla: guarda los teléfonos de cada persona.
 CREATE TABLE Contacto (
     Run      VARCHAR(12) NOT NULL,
     Contacto VARCHAR(30) NOT NULL,
@@ -258,9 +248,7 @@ CREATE TABLE Contacto (
     FOREIGN KEY (Run) REFERENCES Personal (Run)
 );
 
--- Especialización de PERSONAL -> TRABAJADOR / INVESTIGADOR (SOLAPADA:
--- una misma persona puede ser trabajador e investigador a la vez).
--- Run_Supervisor es la relación UNARIA "SUPERVISA" (1:N).
+-- Tabla: guarda los trabajadores y quién los supervisa.
 CREATE TABLE Trabajadores (
     Run            VARCHAR(12) NOT NULL,
     Run_Supervisor VARCHAR(12) NULL,
@@ -270,13 +258,14 @@ CREATE TABLE Trabajadores (
     FOREIGN KEY (Run_Supervisor) REFERENCES Trabajadores (Run)
 );
 
+-- Tabla: guarda qué personas son investigadores.
 CREATE TABLE Investigacion (
     Run VARCHAR(12) NOT NULL,
     PRIMARY KEY (Run),
     FOREIGN KEY (Run) REFERENCES Personal (Run)
 );
 
--- Funciones posibles: Gestión, Vigilancia, Conservación, Investigación.
+-- Tabla: guarda las funciones: Gestión, Vigilancia, Conservación e Investigación.
 CREATE TABLE Funcion (
     Id_Funcion     INT         NOT NULL,
     Nombre_Funcion VARCHAR(40) NOT NULL,
@@ -284,7 +273,7 @@ CREATE TABLE Funcion (
     UNIQUE (Nombre_Funcion)
 );
 
--- EJERCE: qué función cumple cada trabajador y en qué área (un trabajador puede tener varias).
+-- Tabla: guarda qué función cumple cada trabajador y en qué área.
 CREATE TABLE Ejerce (
     Run                 VARCHAR(12) NOT NULL,
     Id_Funcion          INT         NOT NULL,
@@ -299,6 +288,7 @@ CREATE TABLE Ejerce (
         REFERENCES Area (Anio_de_Declaracion, Numero_Correlativo, Numero_Interno)
 );
 
+-- Tabla: guarda los roles del PMV: Administrador, Operador y Analista.
 CREATE TABLE Rol_Sistema (
     Id_Rol        INT         NOT NULL,
     Nombre_de_Rol VARCHAR(40) NOT NULL,
@@ -306,8 +296,7 @@ CREATE TABLE Rol_Sistema (
     UNIQUE (Nombre_de_Rol)
 );
 
--- USUARIO: relación 1:1 con Personal (Run es UNIQUE).
--- La contraseña NO se guarda en texto plano: se guarda el resultado de SHA2(clave, 256).
+-- Tabla: guarda las cuentas del PMV. La contraseña se guarda con SHA2.
 CREATE TABLE Usuario (
     Id_Usuario       INT         NOT NULL,
     Run              VARCHAR(12) NOT NULL,
@@ -321,7 +310,7 @@ CREATE TABLE Usuario (
     FOREIGN KEY (Run) REFERENCES Personal (Run)
 );
 
--- ASIGNACIÓN: relación N:M entre Usuario y Rol (un usuario puede tener varios roles).
+-- Tabla: guarda qué rol tiene cada usuario.
 CREATE TABLE Asignacion (
     Id_Usuario INT NOT NULL,
     Id_Rol     INT NOT NULL,
@@ -332,6 +321,7 @@ CREATE TABLE Asignacion (
 
 -- ---------------- MÓDULO 5: PROYECTOS CIENTÍFICOS -----------------------
 
+-- Tabla: guarda los proyectos de investigación.
 CREATE TABLE Proyecto_Cientifico (
     Id_Proyecto     INT          NOT NULL,
     Nombre_Proyecto VARCHAR(120) NOT NULL,
@@ -344,7 +334,7 @@ CREATE TABLE Proyecto_Cientifico (
     CHECK (Fecha_Termino IS NULL OR Fecha_Termino >= Fecha_Inicio)
 );
 
--- ESTUDIA: investigadores que participan en cada proyecto (N:M).
+-- Tabla: guarda qué investigadores participan en cada proyecto.
 CREATE TABLE Estudia (
     Id_Proyecto INT         NOT NULL,
     Run         VARCHAR(12) NOT NULL,
@@ -353,7 +343,7 @@ CREATE TABLE Estudia (
     FOREIGN KEY (Run)         REFERENCES Investigacion (Run)
 );
 
--- INVESTIGA: especies estudiadas por cada proyecto (N:M).
+-- Tabla: guarda qué especies estudia cada proyecto.
 CREATE TABLE Investiga (
     Id_Proyecto INT NOT NULL,
     Id_Especie  INT NOT NULL,
@@ -362,7 +352,7 @@ CREATE TABLE Investiga (
     FOREIGN KEY (Id_Especie)  REFERENCES Especie (Id_Especie)
 );
 
--- ASIGNAR: áreas donde se desarrolla cada proyecto (N:M).
+-- Tabla: guarda en qué áreas se hace cada proyecto.
 CREATE TABLE Asignar (
     Id_Proyecto         INT NOT NULL,
     Anio_de_Declaracion INT NOT NULL,

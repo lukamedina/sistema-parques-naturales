@@ -1,20 +1,13 @@
 -- =========================================================================
--- 5. VISTAS (R2, R3, R5, R6, R7, R8)
---
--- Criterio común: un "visitante" de una excursión es una inscripción con
--- Asistencia = 'Asiste' (la persona efectivamente fue).
---
--- Recordatorio de cómo se unen las tablas con claves compuestas:
---   Parque_Natural (Anio, Correlativo)
---      -> Area (Anio, Correlativo, Numero_Interno)
---         -> Excursiones / Inventario_Especie (Anio, Correlativo, Numero_Interno)
+-- 5. VISTAS
+-- Una vista es una consulta guardada. Se usa con SELECT * FROM nombre_vista
+-- Visitante = inscripción con Asistencia = 'Asiste'.
 -- =========================================================================
 USE Sistema_Integral_Parques_Naturales;
 
--- -------------------------------------------------------------------------
--- R2: ¿Cómo se distribuyen las especies inventariadas entre vegetales,
---     animales y minerales, considerando parque y área?
--- -------------------------------------------------------------------------
+-- ----------------------- Vistas de Felipe: R2, R3 y R5 -------------------
+
+-- R2. Vista: muestra cuántas especies de cada tipo hay en cada parque y área.
 CREATE VIEW v_r2_distribucion_especies AS
 SELECT p.Nombre_Parque,
        a.Nombre_de_Area,
@@ -30,11 +23,7 @@ JOIN Parque_Natural p ON p.Anio_de_Declaracion = a.Anio_de_Declaracion
                      AND p.Numero_Correlativo  = a.Numero_Correlativo
 GROUP BY p.Nombre_Parque, a.Nombre_de_Area, e.Tipo_Especie;
 
--- -------------------------------------------------------------------------
--- R3: ¿Existe relación entre la cantidad de visitantes de una excursión
---     y su evaluación promedio?
--- LEFT JOIN con Evaluacion: no todos los visitantes dejan evaluación.
--- -------------------------------------------------------------------------
+-- R3. Vista: muestra cuántos visitantes tuvo cada excursión y su nota promedio.
 CREATE VIEW v_r3_visitantes_vs_evaluacion AS
 SELECT x.Registro_Codigo,
        x.Fecha_Excursiones,
@@ -55,12 +44,7 @@ LEFT JOIN Evaluacion ev ON ev.Registro_Codigo = i.Registro_Codigo
 WHERE i.Asistencia = 'Asiste'
 GROUP BY x.Registro_Codigo, x.Fecha_Excursiones, p.Nombre_Parque, a.Nombre_de_Area;
 
--- -------------------------------------------------------------------------
--- R5: ¿Qué áreas presentan mayor tasa de asistencia respecto de las
---     inscripciones realizadas?
--- Se excluyen las inscripciones 'Pendiente' (excursiones que aún no ocurren).
--- SUM(CASE ...) suma 1 por cada inscrito que asistió.
--- -------------------------------------------------------------------------
+-- R5. Vista: muestra qué porcentaje de los inscritos asistió en cada área.
 CREATE VIEW v_r5_tasa_asistencia_area AS
 SELECT p.Nombre_Parque,
        a.Nombre_de_Area,
@@ -78,10 +62,9 @@ JOIN Inscripcion i ON i.Registro_Codigo = x.Registro_Codigo
 WHERE i.Asistencia <> 'Pendiente'
 GROUP BY p.Nombre_Parque, a.Nombre_de_Area;
 
--- -------------------------------------------------------------------------
--- R6: ¿Qué especies presentan mayor cantidad inventariada por parque y área?
--- La vista une las 4 tablas; al consultarla se ordena de mayor a menor.
--- -------------------------------------------------------------------------
+-- ----------------------- Vistas de Javier: R6, R7 y R8 -------------------
+
+-- R6. Vista: muestra cuántos ejemplares hay de cada especie en cada área.
 CREATE VIEW v_r6_especies_por_area AS
 SELECT p.Nombre_Parque,
        a.Nombre_de_Area,
@@ -97,13 +80,7 @@ JOIN Area a           ON a.Anio_de_Declaracion = i.Anio_de_Declaracion
 JOIN Parque_Natural p ON p.Anio_de_Declaracion = a.Anio_de_Declaracion
                      AND p.Numero_Correlativo  = a.Numero_Correlativo;
 
--- -------------------------------------------------------------------------
--- R7: ¿Qué proyectos de investigación concentran mayor participación de
---     investigadores y especies estudiadas?
--- COUNT(DISTINCT ...) evita contar repetidos: al unir investigadores y
--- especies del mismo proyecto, las filas se multiplican.
--- HAVING deja solo proyectos con 2 o más investigadores.
--- -------------------------------------------------------------------------
+-- R7. Vista: muestra los proyectos con 2 o más investigadores y cuántas especies estudian.
 CREATE VIEW v_r7_proyectos_participacion AS
 SELECT pc.Nombre_Proyecto,
        pc.Estado,
@@ -117,11 +94,7 @@ JOIN Especie e    ON e.Id_Especie = iv.Id_Especie
 GROUP BY pc.Nombre_Proyecto, pc.Estado
 HAVING COUNT(DISTINCT per.Run) >= 2;
 
--- -------------------------------------------------------------------------
--- R8: ¿Qué trabajadores desempeñan más de una función y en qué parques o
---     áreas desarrollan sus actividades?
--- GROUP_CONCAT junta en un solo texto los valores del grupo (separados por coma).
--- -------------------------------------------------------------------------
+-- R8. Vista: muestra los trabajadores con más de una función y dónde trabajan.
 CREATE VIEW v_r8_trabajadores_multifuncion AS
 SELECT per.Run,
        CONCAT(per.Primer_Nombre, ' ', per.Apellido_Paterno)               AS Trabajador,
@@ -142,41 +115,16 @@ HAVING COUNT(DISTINCT f.Nombre_Funcion) > 1;
 
 
 -- =========================================================================
--- 6. PROCEDIMIENTOS ALMACENADOS (R1, R4, R9, R10, R11, R12)
--- DELIMITER cambia el fin de sentencia a $$ para poder escribir ; dentro
--- del procedimiento.
+-- 6. PROCEDIMIENTOS ALMACENADOS
+-- Un procedimiento es una consulta guardada que recibe datos. Se usa con CALL.
+-- DELIMITER $$ permite escribir punto y coma dentro del procedimiento.
 -- =========================================================================
 DELIMITER $$
 
--- -------------------------------------------------------------------------
--- R1: ¿Cuáles son las áreas con mayor cantidad de visitantes mediante
---     excursiones durante un período determinado?
--- Ejemplo: CALL sp_r1_areas_mas_visitantes('2026-01-01', '2026-03-31');
--- -------------------------------------------------------------------------
-CREATE PROCEDURE sp_r1_areas_mas_visitantes(IN p_fecha_inicio DATE, IN p_fecha_termino DATE)
-BEGIN
-    SELECT p.Nombre_Parque,
-           a.Nombre_de_Area,
-           COUNT(DISTINCT x.Registro_Codigo) AS Excursiones,
-           COUNT(i.Id_Inscripcion)           AS Visitantes
-    FROM Parque_Natural p
-    JOIN Area a        ON a.Anio_de_Declaracion = p.Anio_de_Declaracion
-                      AND a.Numero_Correlativo  = p.Numero_Correlativo
-    JOIN Excursiones x ON x.Anio_de_Declaracion = a.Anio_de_Declaracion
-                      AND x.Numero_Correlativo  = a.Numero_Correlativo
-                      AND x.Numero_Interno      = a.Numero_Interno
-    JOIN Inscripcion i ON i.Registro_Codigo = x.Registro_Codigo
-    WHERE i.Asistencia = 'Asiste'
-      AND x.Fecha_Excursiones BETWEEN p_fecha_inicio AND p_fecha_termino
-    GROUP BY p.Nombre_Parque, a.Nombre_de_Area
-    ORDER BY Visitantes DESC;
-END$$
+-- ------------------ Procedimientos de Felipe: R4, R9 y R10 ---------------
 
--- -------------------------------------------------------------------------
--- R4: ¿Qué parques concentran la mayor cantidad de excursiones y visitantes
---     en un período determinado?
+-- R4. Procedimiento: muestra los parques con más excursiones y visitantes entre dos fechas.
 -- Ejemplo: CALL sp_r4_parques_mas_excursiones('2026-01-01', '2026-10-31');
--- -------------------------------------------------------------------------
 CREATE PROCEDURE sp_r4_parques_mas_excursiones(IN p_fecha_inicio DATE, IN p_fecha_termino DATE)
 BEGIN
     SELECT p.Nombre_Parque,
@@ -195,17 +143,9 @@ BEGIN
     ORDER BY Excursiones DESC, Visitantes DESC;
 END$$
 
--- -------------------------------------------------------------------------
--- R9: ¿Qué excursiones superan el promedio de visitantes de las excursiones
---     realizadas en el mismo parque?
--- Parámetros: nombre del parque (NULL = todos los parques) y período.
--- La subconsulta es CORRELACIONADA: usa x.Anio_de_Declaracion y
--- x.Numero_Correlativo de la consulta externa, así calcula el promedio del
--- parque de CADA excursión.
--- Promedio de visitantes por excursión = total de visitantes / cantidad de excursiones.
+-- R9. Procedimiento: muestra las excursiones con más visitantes que el promedio de su parque.
 -- Ejemplo: CALL sp_r9_excursiones_sobre_promedio('Parque Natural Costa Rocosa', '2026-01-01', '2026-10-31');
---          CALL sp_r9_excursiones_sobre_promedio(NULL, '2026-01-01', '2026-10-31');
--- -------------------------------------------------------------------------
+-- Con NULL en vez del parque, revisa todos los parques.
 CREATE PROCEDURE sp_r9_excursiones_sobre_promedio(IN p_parque VARCHAR(80),
                                                   IN p_fecha_inicio DATE, IN p_fecha_termino DATE)
 BEGIN
@@ -244,14 +184,8 @@ BEGIN
     ORDER BY p.Nombre_Parque, Visitantes DESC;
 END$$
 
--- -------------------------------------------------------------------------
--- R10: ¿Qué especies poseen una cantidad inventariada superior al promedio
---      de las especies de su mismo tipo?
--- Parámetro: tipo de especie ('Vegetal', 'Animal' o 'Mineral').
--- Cantidad de una especie = suma de lo inventariado en todas sus áreas.
--- Promedio del tipo = total inventariado del tipo / cantidad de especies del tipo.
+-- R10. Procedimiento: muestra las especies con más ejemplares que el promedio de su tipo.
 -- Ejemplo: CALL sp_r10_especies_sobre_promedio_tipo('Animal');
--- -------------------------------------------------------------------------
 CREATE PROCEDURE sp_r10_especies_sobre_promedio_tipo(IN p_tipo VARCHAR(10))
 BEGIN
     SELECT e.Nombre_Vulgar,
@@ -281,13 +215,32 @@ BEGIN
     ORDER BY Total_Inventariado DESC;
 END$$
 
--- -------------------------------------------------------------------------
--- R11: ¿Qué visitantes han participado en más excursiones que el promedio
---      y además poseen una evaluación promedio superior al promedio general?
--- Parámetros: rango de fechas.
--- Promedio de excursiones por visitante = asistencias / visitantes distintos.
+-- ------------------ Procedimientos de Javier: R1, R11 y R12 --------------
+
+-- R1. Procedimiento: muestra las áreas con más visitantes entre dos fechas.
+-- Ejemplo: CALL sp_r1_areas_mas_visitantes('2026-01-01', '2026-03-31');
+CREATE PROCEDURE sp_r1_areas_mas_visitantes(IN p_fecha_inicio DATE, IN p_fecha_termino DATE)
+BEGIN
+    SELECT p.Nombre_Parque,
+           a.Nombre_de_Area,
+           COUNT(DISTINCT x.Registro_Codigo) AS Excursiones,
+           COUNT(i.Id_Inscripcion)           AS Visitantes
+    FROM Parque_Natural p
+    JOIN Area a        ON a.Anio_de_Declaracion = p.Anio_de_Declaracion
+                      AND a.Numero_Correlativo  = p.Numero_Correlativo
+    JOIN Excursiones x ON x.Anio_de_Declaracion = a.Anio_de_Declaracion
+                      AND x.Numero_Correlativo  = a.Numero_Correlativo
+                      AND x.Numero_Interno      = a.Numero_Interno
+    JOIN Inscripcion i ON i.Registro_Codigo = x.Registro_Codigo
+    WHERE i.Asistencia = 'Asiste'
+      AND x.Fecha_Excursiones BETWEEN p_fecha_inicio AND p_fecha_termino
+    GROUP BY p.Nombre_Parque, a.Nombre_de_Area
+    ORDER BY Visitantes DESC;
+END$$
+
+-- R11. Procedimiento: muestra los visitantes que fueron a más excursiones que el promedio
+--      y que ponen mejor nota que el promedio.
 -- Ejemplo: CALL sp_r11_visitantes_destacados('2026-01-01', '2026-10-31');
--- -------------------------------------------------------------------------
 CREATE PROCEDURE sp_r11_visitantes_destacados(IN p_fecha_inicio DATE, IN p_fecha_termino DATE)
 BEGIN
     SELECT v.Id_Visitante,
@@ -316,12 +269,8 @@ BEGIN
     ORDER BY Excursiones_Participadas DESC, Evaluacion_Promedio DESC;
 END$$
 
--- -------------------------------------------------------------------------
--- R12: ¿Qué parques presentan un promedio de visitantes por excursión superior
---      al promedio general de los parques durante un período?
--- Promedio general = total de visitantes / total de excursiones del período.
+-- R12. Procedimiento: muestra los parques con más visitantes por excursión que el promedio general.
 -- Ejemplo: CALL sp_r12_parques_sobre_promedio('2026-01-01', '2026-10-31');
--- -------------------------------------------------------------------------
 CREATE PROCEDURE sp_r12_parques_sobre_promedio(IN p_fecha_inicio DATE, IN p_fecha_termino DATE)
 BEGIN
     SELECT p.Nombre_Parque,
@@ -355,17 +304,19 @@ END$$
 DELIMITER ;
 
 -- =========================================================================
--- SENTENCIAS PARA PROBAR (usar en Workbench para las capturas del informe)
+-- PARA PROBAR EN WORKBENCH
 -- =========================================================================
+-- Felipe
 -- SELECT * FROM v_r2_distribucion_especies ORDER BY Nombre_Parque, Nombre_de_Area;
 -- SELECT * FROM v_r3_visitantes_vs_evaluacion ORDER BY Cantidad_Visitantes DESC;
 -- SELECT * FROM v_r5_tasa_asistencia_area ORDER BY Porcentaje_Asistencia DESC;
--- SELECT * FROM v_r6_especies_por_area ORDER BY Nombre_Parque, Nombre_de_Area, Cantidad_Inventariada DESC;
--- SELECT * FROM v_r7_proyectos_participacion ORDER BY Cantidad_Investigadores DESC, Cantidad_Especies DESC;
--- SELECT * FROM v_r8_trabajadores_multifuncion ORDER BY Cantidad_Funciones DESC;
--- CALL sp_r1_areas_mas_visitantes('2026-01-01', '2026-03-31');
 -- CALL sp_r4_parques_mas_excursiones('2026-01-01', '2026-10-31');
 -- CALL sp_r9_excursiones_sobre_promedio('Parque Natural Costa Rocosa', '2026-01-01', '2026-10-31');
 -- CALL sp_r10_especies_sobre_promedio_tipo('Animal');
+-- Javier
+-- SELECT * FROM v_r6_especies_por_area ORDER BY Cantidad_Inventariada DESC;
+-- SELECT * FROM v_r7_proyectos_participacion ORDER BY Cantidad_Investigadores DESC, Cantidad_Especies DESC;
+-- SELECT * FROM v_r8_trabajadores_multifuncion ORDER BY Cantidad_Funciones DESC;
+-- CALL sp_r1_areas_mas_visitantes('2026-01-01', '2026-03-31');
 -- CALL sp_r11_visitantes_destacados('2026-01-01', '2026-10-31');
 -- CALL sp_r12_parques_sobre_promedio('2026-01-01', '2026-10-31');
